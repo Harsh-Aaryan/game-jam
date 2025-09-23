@@ -1,0 +1,234 @@
+extends Node2D
+
+@onready var background: Sprite2D = $Background
+@onready var ui_layer: CanvasLayer = $UI
+@onready var info_label: Label = $UI/Info
+@onready var popup: PopupPanel = $UI/Popup
+@onready var popup_title: Label = $UI/Popup/Margin/VBox/Title
+@onready var popup_body: Label = $UI/Popup/Margin/VBox/Body
+@onready var popup_line: LineEdit = $UI/Popup/Margin/VBox/Line
+@onready var popup_button_primary: Button = $UI/Popup/Margin/VBox/Buttons/Primary
+@onready var popup_button_secondary: Button = $UI/Popup/Margin/VBox/Buttons/Secondary
+
+const ASSET_PATHS := {
+	"location1": "res://assets/location1.png",
+	"location2": "res://assets/location2.png",
+	"location3": "res://assets/location3.png",
+}
+
+var hotspots: Array[Area2D] = []
+
+func _ready():
+	_set_location(GameState.current_location)
+
+func _clear_hotspots():
+	for h in hotspots:
+		h.queue_free()
+	hotspots.clear()
+
+func _set_location(loc: String) -> void:
+	GameState.current_location = loc
+	_update_background(loc)
+	_update_hotspots_for_location(loc)
+
+func _update_background(loc: String) -> void:
+	var path: String = ASSET_PATHS.get(loc, "")
+	var tex: Texture2D = null
+	if path != "" and ResourceLoader.exists(path):
+		tex = load(path)
+	background.texture = tex
+	if tex:
+		background.centered = false
+		background.position = Vector2.ZERO
+	info_label.text = _make_info_text()
+
+func _make_info_text() -> String:
+	var lines := []
+	lines.append("Inventory: ")
+	if GameState.has_badge: lines.append("Badge ")
+	if GameState.has_paper_intro: lines.append("Intro Paper ")
+	if GameState.puzzle_piece_a: lines.append("Piece A ")
+	if GameState.puzzle_piece_b: lines.append("Piece B ")
+	if GameState.has_key: lines.append("Key ")
+	lines.append("\nHint: Click hotspots. Press Tab to switch rooms.")
+	return "".join(lines)
+
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_focus_next"):
+		# Tab key switches rooms for testing
+		if GameState.current_location == "location1":
+			_set_location("location2")
+		elif GameState.current_location == "location2":
+			_set_location("location3")
+		else:
+			_set_location("location1")
+
+func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
+	var area := Area2D.new()
+	var cs := CollisionShape2D.new()
+	var shape := RectangleShape2D.new()
+	shape.size = rect.size
+	cs.shape = shape
+	cs.position = rect.position + rect.size * 0.5
+	area.position = Vector2.ZERO
+	area.add_child(cs)
+	add_child(area)
+	var l := Label.new()
+	l.text = label
+	l.position = rect.position
+	l.modulate = Color(1,1,0)
+	add_child(l)
+	area.input_event.connect(func(_viewport, e, _shape_idx):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			on_press.call())
+	hotspots.append(area)
+	hotspots.append(l)
+
+func _update_hotspots_for_location(loc: String) -> void:
+	_clear_hotspots()
+	match loc:
+		"location1":
+			_add_hotspot(Rect2(40, 60, 140, 100), "Poster", func(): _on_poster())
+			_add_hotspot(Rect2(300, 160, 160, 90), "Computer", func(): _on_computer())
+			_add_hotspot(Rect2(520, 220, 180, 100), "Desk", func(): _on_desk())
+			_add_hotspot(Rect2(700, 20, 120, 120), "Go to Safe Room", func(): _set_location("location2"))
+		"location2":
+			_add_hotspot(Rect2(360, 120, 180, 180), "Safe", func(): _on_safe())
+			_add_hotspot(Rect2(40, 220, 140, 100), "Back to Class", func(): _set_location("location1"))
+			_add_hotspot(Rect2(680, 220, 140, 100), "Small Door", func(): _set_location("location3"))
+		"location3":
+			_add_hotspot(Rect2(320, 120, 200, 220), "Closet", func(): _on_closet())
+			_add_hotspot(Rect2(40, 220, 140, 100), "Back to Safe Room", func(): _set_location("location2"))
+
+func _on_poster():
+	# Show missing poster with date for password
+	_show_text_dialog("Missing Poster",
+		"Missing: Joe Miner. Went missing on 2013-09-17.\nPassword hint: The date (YYYY-MM-DD).",
+		"OK",
+		func(): popup.hide())
+
+func _on_computer():
+	if not GameState.computer_unlocked:
+		_show_input_dialog(
+			"Computer Login",
+			"Enter password (missing date, YYYY-MM-DD):",
+			"Unlock",
+			func(): _attempt_login(),
+			"Cancel",
+			func(): popup.hide()
+		)
+		return
+	if not GameState.slide_puzzle_solved:
+		_show_text_dialog(
+			"Newspaper Article",
+			"You uncover a scandal tying Joe Miner to a shady deal.\nClick Solve to assemble the article pieces.",
+			"Solve",
+			func():
+				GameState.slide_puzzle_solved = true
+				GameState.puzzle_piece_a = true
+				popup.hide()
+				info_label.text = _make_info_text(),
+			"Later",
+			func(): popup.hide()
+		)
+	else:
+		_show_text_dialog("Computer",
+			"Nothing else useful here.",
+			"OK",
+			func(): popup.hide())
+
+func _attempt_login() -> void:
+	if popup_line.text.strip_edges() == "2013-09-17":
+		GameState.computer_unlocked = true
+		popup.hide()
+		_on_computer()
+	else:
+		popup_body.text = "Incorrect. Try again."
+
+func _on_desk():
+	if not GameState.desk_checked:
+		GameState.desk_checked = true
+		GameState.puzzle_piece_b = true
+		_show_text_dialog("Desk",
+			"Taped underneath is the other half of the puzzle and a note hinting at a new identity.",
+			"OK",
+			func(): popup.hide())
+	else:
+		_show_text_dialog("Desk",
+			"Nothing else under here.",
+			"OK",
+			func(): popup.hide())
+
+func _on_safe():
+	if GameState.safe_opened:
+		_show_text_dialog("Safe", "Already open. The key is gone.", "OK", func(): popup.hide())
+		return
+	if GameState.can_open_safe():
+		GameState.safe_opened = true
+		GameState.has_key = true
+		_show_text_dialog("Safe",
+			"The pieces fit. The safe clicks open, revealing a key.",
+			"Take Key",
+			func(): popup.hide())
+	else:
+		_show_text_dialog("Safe",
+			"Two puzzle pieces are required to open this safe.",
+			"OK",
+			func(): popup.hide())
+
+func _on_closet():
+	if not GameState.has_key:
+		_show_text_dialog("Closet",
+			"Locked. You need a key.",
+			"OK",
+			func(): popup.hide())
+		return
+	if not GameState.closet_opened:
+		GameState.closet_opened = true
+		_show_text_dialog("Closet",
+			"Inside is a standing mirror and paperwork: evidence of plastic surgery to hide your identity.",
+			"Continue",
+			func():
+				popup.hide()
+				_end_game())
+	else:
+		_end_game()
+
+func _end_game():
+	if not GameState.game_over:
+		GameState.game_over = true
+		_show_text_dialog("The End",
+			"You recognize yourself in the mirror. You were Joe Miner, hidden behind a new identity.",
+			"Restart",
+			func():
+				GameState.reset()
+				_set_location(GameState.current_location)
+				popup.hide(),
+			"Quit",
+			func(): get_tree().quit())
+
+func _show_text_dialog(title: String, body: String, primary_text: String, primary_cb: Callable, secondary_text: String = "", secondary_cb: Callable = Callable()):
+	popup_title.text = title
+	popup_body.text = body
+	popup_line.visible = false
+	popup_button_primary.text = primary_text
+	popup_button_primary.pressed.connect(primary_cb, Object.CONNECT_ONE_SHOT)
+	if secondary_text != "":
+		popup_button_secondary.text = secondary_text
+		popup_button_secondary.visible = true
+		popup_button_secondary.pressed.connect(secondary_cb, Object.CONNECT_ONE_SHOT)
+	else:
+		popup_button_secondary.visible = false
+	popup.popup_centered()
+
+func _show_input_dialog(title: String, body: String, primary_text: String, primary_cb: Callable, secondary_text: String, secondary_cb: Callable):
+	popup_title.text = title
+	popup_body.text = body
+	popup_line.text = ""
+	popup_line.visible = true
+	popup_button_primary.text = primary_text
+	popup_button_primary.pressed.connect(primary_cb, Object.CONNECT_ONE_SHOT)
+	popup_button_secondary.text = secondary_text
+	popup_button_secondary.visible = true
+	popup_button_secondary.pressed.connect(secondary_cb, Object.CONNECT_ONE_SHOT)
+	popup.popup_centered()

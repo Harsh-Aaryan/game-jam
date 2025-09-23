@@ -1,0 +1,57 @@
+[gd_scene load_steps=2 format=3 uid="uid://b5ry3pab4qwam"]
+
+[ext_resource type="Script" uid="uid://7aenp3jkpw3m" path="res://Main.gd" id="1_1v5d1"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_1v5d1")
+
+[node name="Background" type="Sprite2D" parent="."]
+centered = false
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Info" type="Label" parent="UI"]
+offset_left = 12.0
+offset_top = 8.0
+offset_right = 600.0
+offset_bottom = 64.0
+text = "Inventory: "
+
+[node name="Popup" type="PopupPanel" parent="UI"]
+size = Vector2i(520, 300)
+
+[node name="Margin" type="MarginContainer" parent="UI/Popup"]
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 516.0
+offset_bottom = 296.0
+
+[node name="VBox" type="VBoxContainer" parent="UI/Popup/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="UI/Popup/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Title"
+
+[node name="Body" type="Label" parent="UI/Popup/Margin/VBox"]
+layout_mode = 2
+text = "Body"
+autowrap_mode = 2
+
+[node name="Line" type="LineEdit" parent="UI/Popup/Margin/VBox"]
+visible = false
+layout_mode = 2
+
+[node name="Buttons" type="HBoxContainer" parent="UI/Popup/Margin/VBox"]
+layout_mode = 2
+alignment = 2
+
+[node name="Primary" type="Button" parent="UI/Popup/Margin/VBox/Buttons"]
+layout_mode = 2
+text = "OK"
+
+[node name="Secondary" type="Button" parent="UI/Popup/Margin/VBox/Buttons"]
+layout_mode = 2
+text = "Cancel"
