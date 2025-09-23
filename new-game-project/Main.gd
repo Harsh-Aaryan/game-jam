@@ -27,22 +27,44 @@ func _clear_hotspots():
 	for h in hotspots:
 		h.queue_free()
 	hotspots.clear()
+	
+func _clear_room_text() -> void:
+	for child in get_children():
+		if child is Label or child is RichTextLabel:
+			child.queue_free()
+			
+	if info_label:
+		info_label.text = ""
 
 func _set_location(loc: String) -> void:
+	#added this
+	_clear_hotspots()
+	_clear_room_text()
 	GameState.current_location = loc
 	_update_background(loc)
 	_update_hotspots_for_location(loc)
+	
 
 func _update_background(loc: String) -> void:
 	var path: String = ASSET_PATHS.get(loc, "")
-	var tex: Texture2D = null
+	#var tex: Texture2D = null
+	#if path != "" and ResourceLoader.exists(path):
+		#tex = load(path)
+	#background.texture = tex
+	#if tex:
+		#background.centered = false
+		#background.position = Vector2.ZERO
+	#info_label.text = ""
+	#info_label.text = _make_info_text()
 	if path != "" and ResourceLoader.exists(path):
-		tex = load(path)
-	background.texture = tex
-	if tex:
+		var tex: Texture2D = load(path)
+		background.texture = tex
 		background.centered = false
 		background.position = Vector2.ZERO
-	info_label.text = _make_info_text()
+	else:
+		background.texture = null
+	info_label.text = _make_info_text() 
+
 
 func _make_info_text() -> String:
 	var lines := []
@@ -100,6 +122,7 @@ func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 			on_press.call())
 	hotspots.append(area)
 	hotspots.append(l)
+	
 
 func _update_hotspots_for_location(loc: String) -> void:
 	_clear_hotspots()
