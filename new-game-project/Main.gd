@@ -20,6 +20,8 @@ var hotspots: Array[Area2D] = []
 
 func _ready():
 	_set_location(GameState.current_location)
+	var cursor = load("res://assets/cursor.png")
+	Input.set_custom_mouse_cursor(cursor, Input.CURSOR_ARROW, Vector2(0,16))
 
 func _clear_hotspots():
 	for h in hotspots:
@@ -78,6 +80,21 @@ func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 	l.position = rect.position
 	l.modulate = Color(1,1,0)
 	add_child(l)
+	
+	#Change cursor on interactable
+	var finger_cursor = preload("res://assets/cursor.png")
+	var eye_cursor = preload("res://assets/interact.png")
+	area.mouse_entered.connect(func():
+		Input.set_custom_mouse_cursor(eye_cursor, Input.CURSOR_ARROW, Vector2(16, 16))
+	)
+	area.mouse_exited.connect(func():
+		Input.set_custom_mouse_cursor(finger_cursor, Input.CURSOR_ARROW, Vector2(6, 28))
+	)
+	area.input_event.connect(func(_viewport, e, _shape_idx):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			on_press.call()
+		)
+	
 	area.input_event.connect(func(_viewport, e, _shape_idx):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			on_press.call())
