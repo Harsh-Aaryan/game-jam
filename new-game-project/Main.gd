@@ -14,6 +14,7 @@ const ASSET_PATHS := {
 	"location1": "res://assets/location1.png",
 	"location2": "res://assets/location2.png",
 	"location3": "res://assets/location3.png",
+	#"computer_screen": "res://assets/computerscreen-f.png",
 }
 
 var hotspots: Array[Area2D] = []
@@ -37,7 +38,6 @@ func _clear_room_text() -> void:
 		info_label.text = ""
 
 func _set_location(loc: String) -> void:
-	#added this
 	_clear_hotspots()
 	_clear_room_text()
 	GameState.current_location = loc
@@ -47,15 +47,6 @@ func _set_location(loc: String) -> void:
 
 func _update_background(loc: String) -> void:
 	var path: String = ASSET_PATHS.get(loc, "")
-	#var tex: Texture2D = null
-	#if path != "" and ResourceLoader.exists(path):
-		#tex = load(path)
-	#background.texture = tex
-	#if tex:
-		#background.centered = false
-		#background.position = Vector2.ZERO
-	#info_label.text = ""
-	#info_label.text = _make_info_text()
 	if path != "" and ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
 		background.texture = tex
@@ -139,6 +130,8 @@ func _update_hotspots_for_location(loc: String) -> void:
 		"location3":
 			_add_hotspot(Rect2(320, 120, 200, 220), "Closet", func(): _on_closet())
 			_add_hotspot(Rect2(40, 220, 140, 100), "Back to Safe Room", func(): _set_location("location2"))
+		#"computer_screen":
+			#_add_hotspot(Rect2(40, 220, 140, 100), "Back", func(): _set_location("location1"))
 
 func _on_poster():
 	# Show missing poster with date for password
@@ -157,7 +150,9 @@ func _on_computer():
 			"Cancel",
 			func(): popup.hide()
 		)
-		return
+	#else:
+		#_set_location("computer_screen")
+		
 	if not GameState.slide_puzzle_solved:
 		_show_text_dialog(
 			"Newspaper Article",
@@ -182,6 +177,7 @@ func _attempt_login() -> void:
 		GameState.computer_unlocked = true
 		popup.hide()
 		_on_computer()
+		#_set_location("computer_screen")
 	else:
 		popup_body.text = "Incorrect. Try again."
 
