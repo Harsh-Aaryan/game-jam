@@ -1,5 +1,6 @@
 extends Node2D
 
+# UI node references for popup dialogs and inventory display
 @onready var background: Sprite2D = $Background
 @onready var ui_layer: CanvasLayer = $UI
 @onready var info_label: Label = $UI/Info
@@ -10,6 +11,7 @@ extends Node2D
 @onready var popup_button_primary: Button = $UI/Popup/Margin/VBox/Buttons/Primary
 @onready var popup_button_secondary: Button = $UI/Popup/Margin/VBox/Buttons/Secondary
 
+# Background image paths for each location
 const ASSET_PATHS := {
 	"location1": "res://assets/location1.png",
 	"location2": "res://assets/location2.png",
@@ -17,18 +19,23 @@ const ASSET_PATHS := {
 	#"computer_screen": "res://assets/computerscreen-f.png",
 }
 
+# Array to track clickable hotspot areas
 var hotspots: Array[Area2D] = []
 
+# Initialize game - set starting location and custom cursor
 func _ready():
 	_set_location(GameState.current_location)
 	var cursor = load("res://assets/cursor.png")
 	Input.set_custom_mouse_cursor(cursor, Input.CURSOR_ARROW, Vector2(0,16))
+	_apply_old_font_style()
 
+# Remove all clickable hotspot areas when changing rooms
 func _clear_hotspots():
 	for h in hotspots:
 		h.queue_free()
 	hotspots.clear()
 	
+# Clear any text labels added to the room
 func _clear_room_text() -> void:
 	for child in get_children():
 		if child is Label or child is RichTextLabel:
@@ -37,6 +44,7 @@ func _clear_room_text() -> void:
 	if info_label:
 		info_label.text = ""
 
+# Switch to a different location/room
 func _set_location(loc: String) -> void:
 	_clear_hotspots()
 	_clear_room_text()
@@ -45,6 +53,7 @@ func _set_location(loc: String) -> void:
 	_update_hotspots_for_location(loc)
 	
 
+# Load and display background image for current location
 func _update_background(loc: String) -> void:
 	var path: String = ASSET_PATHS.get(loc, "")
 	if path != "" and ResourceLoader.exists(path):
@@ -56,7 +65,7 @@ func _update_background(loc: String) -> void:
 		background.texture = null
 	info_label.text = _make_info_text() 
 
-
+# Build inventory display text showing collected items
 func _make_info_text() -> String:
 	var lines := []
 	lines.append("Inventory: ")
@@ -68,6 +77,7 @@ func _make_info_text() -> String:
 	lines.append("\nHint: Click hotspots. Press Tab to switch rooms.")
 	return "".join(lines)
 
+# Handle keyboard input - Tab key cycles through rooms for testing
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_focus_next"):
 		# Tab key switches rooms for testing
@@ -78,6 +88,7 @@ func _input(event: InputEvent) -> void:
 		else:
 			_set_location("location1")
 
+# Create a clickable hotspot area with label and cursor changes
 func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 	var area := Area2D.new()
 	var cs := CollisionShape2D.new()
@@ -88,13 +99,15 @@ func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 	area.position = Vector2.ZERO
 	area.add_child(cs)
 	add_child(area)
+	
+	# Create yellow label for the hotspot
 	var l := Label.new()
 	l.text = label
 	l.position = rect.position
 	l.modulate = Color(1,1,0)
 	add_child(l)
 	
-	#Change cursor on interactable
+	# Change cursor when hovering over interactable areas
 	var finger_cursor = preload("res://assets/cursor.png")
 	var eye_cursor = preload("res://assets/interact.png")
 	area.mouse_entered.connect(func():
@@ -103,43 +116,45 @@ func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 	area.mouse_exited.connect(func():
 		Input.set_custom_mouse_cursor(finger_cursor, Input.CURSOR_ARROW, Vector2(6, 28))
 	)
+	
+	# Handle left-click on hotspot
 	area.input_event.connect(func(_viewport, e, _shape_idx):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			on_press.call()
 		)
 	
-	area.input_event.connect(func(_viewport, e, _shape_idx):
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			on_press.call())
+	# Store references for cleanup
 	hotspots.append(area)
 	hotspots.append(l)
 	
 
+# Set up clickable hotspots for each room/location
 func _update_hotspots_for_location(loc: String) -> void:
 	_clear_hotspots()
 	match loc:
-		"location1":
+		"location1": # Classroom - Poster, Computer, Desk, door to Safe Room
 			_add_hotspot(Rect2(40, 60, 140, 100), "Poster", func(): _on_poster())
 			_add_hotspot(Rect2(300, 160, 160, 90), "Computer", func(): _on_computer())
 			_add_hotspot(Rect2(520, 220, 180, 100), "Desk", func(): _on_desk())
 			_add_hotspot(Rect2(700, 20, 120, 120), "Go to Safe Room", func(): _set_location("location2"))
-		"location2":
+		"location2": # Safe Room - Safe, doors back to Class and to Closet
 			_add_hotspot(Rect2(360, 120, 180, 180), "Safe", func(): _on_safe())
 			_add_hotspot(Rect2(40, 220, 140, 100), "Back to Class", func(): _set_location("location1"))
 			_add_hotspot(Rect2(680, 220, 140, 100), "Small Door", func(): _set_location("location3"))
-		"location3":
+		"location3": # Closet - Closet/Mirror, door back to Safe Room
 			_add_hotspot(Rect2(320, 120, 200, 220), "Closet", func(): _on_closet())
 			_add_hotspot(Rect2(40, 220, 140, 100), "Back to Safe Room", func(): _set_location("location2"))
 		#"computer_screen":
 			#_add_hotspot(Rect2(40, 220, 140, 100), "Back", func(): _set_location("location1"))
 
+# Show missing poster with the date needed for computer password
 func _on_poster():
-	# Show missing poster with date for password
 	_show_text_dialog("Missing Poster",
 		"Missing: Joe Miner. Went missing on 2013-09-17.\nPassword hint: The date (YYYY-MM-DD).",
 		"OK",
 		func(): popup.hide())
 
+# Handle computer interaction - login then puzzle
 func _on_computer():
 	if not GameState.computer_unlocked:
 		_show_input_dialog(
@@ -172,6 +187,7 @@ func _on_computer():
 			"OK",
 			func(): popup.hide())
 
+# Check computer password and unlock if correct
 func _attempt_login() -> void:
 	if popup_line.text.strip_edges() == "2013-09-17":
 		GameState.computer_unlocked = true
@@ -181,6 +197,7 @@ func _attempt_login() -> void:
 	else:
 		popup_body.text = "Incorrect. Try again."
 
+# Search desk for puzzle piece and identity clues
 func _on_desk():
 	if not GameState.desk_checked:
 		GameState.desk_checked = true
@@ -195,6 +212,7 @@ func _on_desk():
 			"OK",
 			func(): popup.hide())
 
+# Try to open safe with puzzle pieces
 func _on_safe():
 	if GameState.safe_opened:
 		_show_text_dialog("Safe", "Already open. The key is gone.", "OK", func(): popup.hide())
@@ -212,6 +230,7 @@ func _on_safe():
 			"OK",
 			func(): popup.hide())
 
+# Open closet with key to reach the ending
 func _on_closet():
 	if not GameState.has_key:
 		_show_text_dialog("Closet",
@@ -230,19 +249,21 @@ func _on_closet():
 	else:
 		_end_game()
 
+# Show ending dialog with restart/quit options
 func _end_game():
 	if not GameState.game_over:
 		GameState.game_over = true
-		_show_text_dialog("The End",
-			"You recognize yourself in the mirror. You were Joe Miner, hidden behind a new identity.",
-			"Restart",
-			func():
-				GameState.reset()
-				_set_location(GameState.current_location)
-				popup.hide(),
-			"Quit",
-			func(): get_tree().quit())
+	_show_text_dialog("The End",
+		"You recognize yourself in the mirror. You were Joe Miner, hidden behind a new identity.",
+		"Restart",
+		func():
+			GameState.reset()
+			_set_location(GameState.current_location)
+			popup.hide(),
+		"Quit",
+		func(): get_tree().quit())
 
+# Show popup dialog with title, message, and buttons
 func _show_text_dialog(title: String, body: String, primary_text: String, primary_cb: Callable, secondary_text: String = "", secondary_cb: Callable = Callable()):
 	popup_title.text = title
 	popup_body.text = body
@@ -257,6 +278,7 @@ func _show_text_dialog(title: String, body: String, primary_text: String, primar
 		popup_button_secondary.visible = false
 	popup.popup_centered()
 
+# Show popup dialog with text input field for passwords
 func _show_input_dialog(title: String, body: String, primary_text: String, primary_cb: Callable, secondary_text: String, secondary_cb: Callable):
 	popup_title.text = title
 	popup_body.text = body
@@ -268,3 +290,27 @@ func _show_input_dialog(title: String, body: String, primary_text: String, prima
 	popup_button_secondary.visible = true
 	popup_button_secondary.pressed.connect(secondary_cb, Object.CONNECT_ONE_SHOT)
 	popup.popup_centered()
+
+# Apply old-timey font styling to UI elements
+func _apply_old_font_style():
+	# Create a custom font with old-timey characteristics
+	var font = ThemeDB.fallback_font
+	if font:
+		# Apply to all UI labels and buttons
+		info_label.add_theme_font_size_override("font_size", 16)
+		info_label.modulate = Color(0.9, 0.8, 0.6) # Sepia tone
+		
+		popup_title.add_theme_font_size_override("font_size", 20)
+		popup_title.modulate = Color(0.8, 0.7, 0.5)
+		
+		popup_body.add_theme_font_size_override("font_size", 14)
+		popup_body.modulate = Color(0.9, 0.8, 0.6)
+		
+		popup_line.add_theme_font_size_override("font_size", 14)
+		popup_line.modulate = Color(0.9, 0.8, 0.6)
+		
+		popup_button_primary.add_theme_font_size_override("font_size", 14)
+		popup_button_primary.modulate = Color(0.8, 0.7, 0.5)
+		
+		popup_button_secondary.add_theme_font_size_override("font_size", 14)
+		popup_button_secondary.modulate = Color(0.8, 0.7, 0.5)

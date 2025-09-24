@@ -16,6 +16,7 @@ offset_top = 8.0
 offset_right = 600.0
 offset_bottom = 64.0
 text = "Inventory: "
+theme_override_font_sizes/font_size = 14
 
 [node name="Popup" type="PopupPanel" parent="UI"]
 size = Vector2i(520, 300)
@@ -32,17 +33,19 @@ theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="UI/Popup/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "Title"
 
 [node name="Body" type="Label" parent="UI/Popup/Margin/VBox"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 14
 text = "Body"
 autowrap_mode = 2
 
 [node name="Line" type="LineEdit" parent="UI/Popup/Margin/VBox"]
 visible = false
 layout_mode = 2
+theme_override_font_sizes/font_size = 14
 
 [node name="Buttons" type="HBoxContainer" parent="UI/Popup/Margin/VBox"]
 layout_mode = 2
@@ -50,8 +53,10 @@ alignment = 2
 
 [node name="Primary" type="Button" parent="UI/Popup/Margin/VBox/Buttons"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 14
 text = "OK"
 
 [node name="Secondary" type="Button" parent="UI/Popup/Margin/VBox/Buttons"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 14
 text = "Cancel"
