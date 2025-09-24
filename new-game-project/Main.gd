@@ -9,6 +9,7 @@ extends Node2D
 @onready var popup_line: LineEdit = $UI/Popup/Margin/VBox/Line
 @onready var popup_button_primary: Button = $UI/Popup/Margin/VBox/Buttons/Primary
 @onready var popup_button_secondary: Button = $UI/Popup/Margin/VBox/Buttons/Secondary
+@onready var puzzle_layer: Node2D = Node2D.new()
 
 const ASSET_PATHS := {
 	"location1": "res://assets/location1.png",
@@ -26,6 +27,7 @@ func _ready():
 	_set_location(GameState.current_location)
 	var cursor = load("res://assets/cursor.png")
 	Input.set_custom_mouse_cursor(cursor, Input.CURSOR_ARROW, Vector2(0,16))
+	add_child(puzzle_layer)
 
 func _clear_hotspots():
 	for h in hotspots:
@@ -42,6 +44,10 @@ func _clear_room_text() -> void:
 func _set_location(loc: String) -> void:
 	_clear_hotspots()
 	_clear_room_text()
+	if loc != "computer_screen":
+		puzzle_layer.queue_free()
+		puzzle_layer = Node2D.new()
+		add_child(puzzle_layer)
 	GameState.current_location = loc
 	_update_background(loc)
 	_update_hotspots_for_location(loc)
@@ -213,10 +219,17 @@ func _show_input_dialog(title: String, body: String, primary_text: String, prima
 # --- Slide Puzzle ---
 func _start_slide_puzzle():
 	GameState.slide_puzzle_solved = false
+	_clear_puzzle()
 	_create_slide_puzzle_pieces()
 
-func _create_slide_puzzle_pieces():
+func _clear_puzzle():
+	if is_instance_valid(puzzle_layer):
+		puzzle_layer.queue_free()
+	puzzle_layer = Node2D.new()
+	add_child(puzzle_layer)
 	puzzle_grid.clear()
+	
+func _create_slide_puzzle_pieces():
 	for row in range(3):
 		puzzle_grid.append([])
 		for col in range(3):
@@ -229,15 +242,14 @@ func _create_slide_puzzle_pieces():
 			piece.position = Vector2(col, row) * piece_size
 			piece.name = "piece_%d_%d" % [row, col]
 			piece.mouse_filter = Control.MOUSE_FILTER_STOP
-			piece.connect("input_event", Callable(self, "_on_puzzle_piece_clicked"))
-			add_child(piece)
+			piece.gui_input.connect(func(event): _on_puzzle_piece_clicked(event, piece))
+			puzzle_layer.add_child(piece)
 			puzzle_grid[row].append(piece)
 
-func _on_puzzle_piece_clicked(viewport, event, shape_idx):
+func _on_puzzle_piece_clicked(event: InputEvent, piece: TextureRect):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var piece = event.get_source()
 		var pos = _find_piece_position(piece)
-		if pos == null:
+		if pos == Vector2(-1, -1):
 			return
 		if _is_adjacent(pos, empty_slot):
 			_swap_piece(pos, empty_slot)
@@ -246,7 +258,7 @@ func _on_puzzle_piece_clicked(viewport, event, shape_idx):
 				GameState.slide_puzzle_solved = true
 				_show_text_dialog("Puzzle Solved!", "You assembled the article.", "OK", func(): _set_location("computer_screen"))
 
-func _find_piece_position(piece: Sprite2D) -> Vector2:
+func _find_piece_position(piece: TextureRect) -> Vector2:
 	for row in range(3):
 		for col in range(3):
 			if puzzle_grid[row][col] == piece:
