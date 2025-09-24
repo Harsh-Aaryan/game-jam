@@ -27,7 +27,6 @@ func _ready():
 	var cursor = load("res://assets/cursor.png")
 	Input.set_custom_mouse_cursor(cursor, Input.CURSOR_ARROW, Vector2(0,16))
 
-# --- Hotspot & Room Handling ---
 func _clear_hotspots():
 	for h in hotspots:
 		h.queue_free()
@@ -107,7 +106,6 @@ func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			on_press.call()
 		)
-
 	hotspots.append(area)
 	hotspots.append(l)
 
@@ -129,7 +127,6 @@ func _update_hotspots_for_location(loc: String) -> void:
 		"computer_screen":
 			_add_hotspot(Rect2(40, 220, 140, 100), "Back", func(): _set_location("location1"))
 
-# --- Room Interactions ---
 func _on_poster():
 	_show_text_dialog("Missing Poster", "Missing: Joe Miner. Went missing on 2013-09-17.\nPassword hint: The date (YYYY-MM-DD).", "OK", func(): popup.hide())
 
@@ -187,7 +184,6 @@ func _end_game():
 		GameState.game_over = true
 		_show_text_dialog("The End", "You recognize yourself in the mirror. You were Joe Miner, hidden behind a new identity.", "Restart", func(): GameState.reset(); _set_location(GameState.current_location); popup.hide(), "Quit", func(): get_tree().quit())
 
-# --- Popups ---
 func _show_text_dialog(title: String, body: String, primary_text: String, primary_cb: Callable, secondary_text: String = "", secondary_cb: Callable = Callable()):
 	popup_title.text = title
 	popup_body.text = body
