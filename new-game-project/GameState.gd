@@ -15,6 +15,7 @@ var closet_opened: bool = false
 var closet_looked_at: bool = false
 var game_over: bool = false
 var title_screen_shown: bool = false
+var puzzle_active: bool = false
 
 var current_location: String = "title"
 

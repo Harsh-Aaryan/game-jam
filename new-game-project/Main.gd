@@ -9,7 +9,9 @@ extends Node2D
 @onready var popup_line: LineEdit = $UI/Popup/Margin/VBox/Line
 @onready var popup_button_primary: Button = $UI/Popup/Margin/VBox/Buttons/Primary
 @onready var popup_button_secondary: Button = $UI/Popup/Margin/VBox/Buttons/Secondary
-@onready var puzzle_layer: Node2D = Node2D.new()
+
+# Make puzzle_layer a Control (so mouse_filter exists)
+var puzzle_layer: Control = Control.new()
 
 const ASSET_PATHS := {
 	"title": "res://assets/title-f.png",
@@ -31,7 +33,7 @@ const ASSET_PATHS := {
 
 var hotspots: Array[Area2D] = []
 var puzzle_grid: Array = []
-var empty_slot: Vector2 = Vector2(2,2)
+var empty_slot: Vector2 = Vector2(2,2) # row,col (row=2,col=2) is empty slot
 var piece_size: Vector2 = Vector2(100, 100)
 var computer_unlock_sound = preload("res://assets/computer-unlock.wav")
 
@@ -43,13 +45,24 @@ func _ready():
 	_setup_old_timey_fonts()
 	var cursor = load("res://assets/cursor.png")
 	Input.set_custom_mouse_cursor(cursor, Input.CURSOR_ARROW, Vector2(0,16))
-	add_child(puzzle_layer)
-	
+
+	# ensure puzzle_layer is a Control parent and occupies full rect
+	_clear_puzzle_layer_init()
+
 	# Start with title screen
 	if GameState.current_location == "title":
 		_show_title_screen()
 	else:
 		_set_location(GameState.current_location)
+
+func _clear_puzzle_layer_init():
+	# Make sure puzzle_layer is a Control and docked full-rect so it can eat clicks when active
+	if is_instance_valid(puzzle_layer):
+		puzzle_layer.queue_free()
+	puzzle_layer = Control.new()
+	puzzle_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	puzzle_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(puzzle_layer)
 
 func _setup_old_timey_fonts():
 	# Create old-timey fonts using Godot's built-in font system
@@ -118,7 +131,8 @@ func _apply_old_timey_styling():
 # --- Hotspot & Room Handling ---
 func _clear_hotspots():
 	for h in hotspots:
-		h.queue_free()
+		if is_instance_valid(h):
+			h.queue_free()
 	hotspots.clear()
 
 func _clear_room_text() -> void:
@@ -132,13 +146,9 @@ func _set_location(loc: String) -> void:
 	_clear_hotspots()
 	_clear_room_text()
 	_clear_image_overlays()
-	if loc == "title":
-		_show_title_screen()
-		return
+	# If leaving computer, clear puzzle pieces (they live under puzzle_layer)
 	if loc != "computer_screen":
-		puzzle_layer.queue_free()
-		puzzle_layer = Node2D.new()
-		add_child(puzzle_layer)
+		_clear_puzzle()
 	GameState.current_location = loc
 	_update_background(loc)
 	_update_hotspots_for_location(loc)
@@ -158,25 +168,45 @@ func _make_info_text() -> String:
 	if GameState.closet_opened:
 		return ""
 	var lines := []
-	lines.append("")
-	if GameState.has_badge: lines.append("")
-	if GameState.has_paper_intro: lines.append("")
-	if GameState.puzzle_piece_a: lines.append("")
-	if GameState.puzzle_piece_b: lines.append("")
-	if GameState.has_key: lines.append("")
+	# Inventory (keep your existing placeholders but make them visible)
+	if GameState.has_badge: lines.append("Badge ")
+	if GameState.has_paper_intro: lines.append("Intro Paper ")
+	if GameState.puzzle_piece_a: lines.append("Piece A ")
+	if GameState.puzzle_piece_b: lines.append("Piece B ")
+	if GameState.has_key: lines.append("Key ")
 	if GameState.title_screen_shown:
 		lines.append("\nHint: Press Tab to switch rooms.")
 	return "".join(lines)
 
 func _input(event: InputEvent) -> void:
+	# Tab key: handle leaving computer specially when puzzle active
 	if event.is_action_pressed("ui_focus_next"):
-		# Tab key switches rooms for testing
+		# If on computer screen and puzzle is active, Tab will clear the puzzle and allow exit
+		if GameState.current_location == "computer_screen" and GameState.puzzle_active:
+			_clear_puzzle()
+			GameState.puzzle_active = false
+			_set_location("location1")
+			return
+
+		# Otherwise normal tab room test switch (keep legacy behavior)
 		if GameState.current_location == "location1":
 			_set_location("location2")
 		elif GameState.current_location == "location2":
 			_set_location("location3")
 		else:
 			_set_location("location1")
+
+	# Skip puzzle with K (testing)
+	if event is InputEventKey and event.pressed and event.keycode == KEY_K:
+		if not GameState.slide_puzzle_solved and GameState.current_location == "computer_screen":
+			_skip_slide_puzzle()
+
+func _skip_slide_puzzle():
+	GameState.slide_puzzle_solved = true
+	GameState.puzzle_piece_a = true
+	GameState.puzzle_active = false
+	_clear_puzzle()
+	_set_location("computer_screen")
 
 func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 	var area := Area2D.new()
@@ -219,6 +249,11 @@ func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 
 func _update_hotspots_for_location(loc: String) -> void:
 	_clear_hotspots()
+
+	# If puzzle is active, do not add hotspots (prevents leaving by click)
+	if GameState.puzzle_active:
+		return
+
 	match loc:
 		"location1":
 			_add_hotspot(Rect2(180, 220, 160, 90), "", func(): _on_computer())
@@ -233,7 +268,9 @@ func _update_hotspots_for_location(loc: String) -> void:
 			_add_hotspot(Rect2(80, 50, 115, 160), "", func(): _on_safe())
 			_add_hotspot(Rect2(10, 200, 60, 200), "", func(): _set_location("location2"))
 		"computer_screen":
-			_add_hotspot(Rect2(40, 220, 140, 100), "", func(): _set_location("location1"))
+			# only add Back hotspot when puzzle is not active
+			if not GameState.puzzle_active:
+				_add_hotspot(Rect2(40, 220, 140, 100), "", func(): _set_location("location1"))
 		"poster":
 			_add_hotspot(Rect2(0, 0, 720, 480), "", func(): _set_location("location2"))
 		"safe_locked", "safe_piece_a", "safe_piece_b":
@@ -256,9 +293,11 @@ func _on_computer():
 		_show_input_dialog("Computer Login", "Enter password (missing date, YYYY-MM-DD):", "Unlock", func(): _attempt_login(), "Cancel", func(): popup.hide())
 		return
 
+	# move to computer background first
 	_set_location("computer_screen")
 	play_sound(computer_unlock_sound)
 
+	# start puzzle (this sets puzzle_active and also clears hotspots right away)
 	if not GameState.slide_puzzle_solved:
 		_start_slide_puzzle()
 	else:
@@ -407,18 +446,31 @@ func _start_game():
 
 # --- Slide Puzzle ---
 func _start_slide_puzzle():
+	# Mark puzzle active and clear hotspots so clicks cannot leave
 	GameState.slide_puzzle_solved = false
+	GameState.puzzle_active = true
+	_clear_hotspots()
 	_clear_puzzle()
 	_create_slide_puzzle_pieces()
 
 func _clear_puzzle():
+	# Remove existing puzzle layer and recreate a Control that can eat clicks when active
 	if is_instance_valid(puzzle_layer):
 		puzzle_layer.queue_free()
-	puzzle_layer = Node2D.new()
+	puzzle_layer = Control.new()
+	puzzle_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	puzzle_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(puzzle_layer)
+	# clear grid state - pieces will be added as children of puzzle_layer
+	for row in puzzle_grid:
+		for piece in row:
+			if piece != null and is_instance_valid(piece):
+				piece.queue_free()
 	puzzle_grid.clear()
-	
-func _create_slide_puzzle_pieces():
+
+func _create_slide_puzzle_pieces() -> void:
+	# Create grid with null in bottom-right, then place pieces and connect input
+	puzzle_grid.clear()
 	for row in range(3):
 		puzzle_grid.append([])
 		for col in range(3):
@@ -426,39 +478,97 @@ func _create_slide_puzzle_pieces():
 				puzzle_grid[row].append(null)
 				empty_slot = Vector2(row, col)
 				continue
+
 			var piece = TextureRect.new()
 			piece.texture = load("res://assets/puzzle_piece_%d_%d.png" % [row, col])
+			# layout properties
+			piece.expand = true
+			piece.stretch_mode = TextureRect.STRETCH_SCALE
+			piece.custom_minimum_size = piece_size
 			piece.position = Vector2(col, row) * piece_size
 			piece.name = "piece_%d_%d" % [row, col]
-			piece.mouse_filter = Control.MOUSE_FILTER_STOP
-			piece.gui_input.connect(func(event): _on_puzzle_piece_clicked(event, piece))
+			# add to puzzle_layer (so we can clear them easily)
 			puzzle_layer.add_child(piece)
 			puzzle_grid[row].append(piece)
+			# connect GUI input; bind the piece instance so handler gets it
+			piece.gui_input.connect(Callable(self, "_on_piece_gui_input").bind(piece))
 
-func _on_puzzle_piece_clicked(event: InputEvent, piece: TextureRect):
+	# scramble after creation (keeps bottom-right slot empty)
+	_scramble_puzzle()
+
+func _scramble_puzzle() -> void:
+	var pieces = []
+	# collect all non-null pieces
+	for row in puzzle_grid:
+		for piece in row:
+			if piece != null:
+				pieces.append(piece)
+	pieces.shuffle()
+	var i = 0
+	for row in range(3):
+		for col in range(3):
+			if puzzle_grid[row][col] != null:
+				var piece = pieces[i]
+				puzzle_grid[row][col] = piece
+				# ensure piece parent is puzzle_layer
+				if piece.get_parent() != puzzle_layer:
+					piece.get_parent().remove_child(piece)
+					puzzle_layer.add_child(piece)
+				piece.position = Vector2(col, row) * piece_size
+				i += 1
+	# ensure empty_slot is accurate (still bottom-right unless you want to randomize)
+	empty_slot = Vector2(2,2)
+
+# handler for gui_input signal; receives bound piece as second arg
+func _on_piece_gui_input(event: InputEvent, piece: TextureRect) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var pos = _find_piece_position(piece)
-		if pos == Vector2(-1, -1):
-			return
-		if _is_adjacent(pos, empty_slot):
-			_swap_piece(pos, empty_slot)
-			empty_slot = pos
-			if _check_slide_puzzle_solved():
-				GameState.slide_puzzle_solved = true
-				GameState.puzzle_piece_a = true
-				_show_text_dialog("Puzzle Solved!", "You assembled a news article regarding Joe Miner.", "OK", func(): _set_location("computer_screen"))
+		_on_piece_clicked(piece)
+
+func _on_piece_clicked(piece: TextureRect) -> void:
+	# find piece position (returns Vector2(row, col) or (-1,-1) if not found)
+	var pos = _find_piece_position(piece)
+	if pos == Vector2(-1, -1):
+		return
+	var row = int(pos.x)
+	var col = int(pos.y)
+
+	# directions are row, col pairs: up, down, left, right
+	var directions = [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1)]
+	for d in directions:
+		var nr = row + int(d.x)
+		var nc = col + int(d.y)
+		if nr >= 0 and nr < 3 and nc >= 0 and nc < 3:
+			if puzzle_grid[nr][nc] == null:
+				# move piece into empty slot
+				puzzle_grid[nr][nc] = piece
+				puzzle_grid[row][col] = null
+				# update visual position
+				piece.position = Vector2(nc, nr) * piece_size
+				# update empty slot to previous location
+				empty_slot = Vector2(row, col)
+				# check solved
+				if _check_slide_puzzle_solved():
+					GameState.slide_puzzle_solved = true
+					GameState.puzzle_active = false
+					GameState.puzzle_piece_a = true
+					_clear_puzzle()
+					_show_text_dialog("Puzzle Solved!", "You assembled the article.", "OK", func(): _set_location("computer_screen"))
+				return
 
 func _find_piece_position(piece: TextureRect) -> Vector2:
 	for row in range(3):
 		for col in range(3):
 			if puzzle_grid[row][col] == piece:
-				return Vector2(row, col)
+				return Vector2(row, col) # row, col
 	return Vector2(-1, -1)
 
 func _is_adjacent(pos_a: Vector2, pos_b: Vector2) -> bool:
+	# pos: Vector2(row, col)
 	return (abs(pos_a.x - pos_b.x) == 1 and pos_a.y == pos_b.y) or (abs(pos_a.y - pos_b.y) == 1 and pos_a.x == pos_b.x)
 
 func _swap_piece(pos_a: Vector2, pos_b: Vector2) -> void:
+	# Not used now (logic in _on_piece_clicked), but keep consistent if used
+	# pos = Vector2(row, col)
 	var temp = puzzle_grid[pos_a.x][pos_a.y]
 	puzzle_grid[pos_a.x][pos_a.y] = puzzle_grid[pos_b.x][pos_b.y]
 	puzzle_grid[pos_b.x][pos_b.y] = temp
@@ -497,7 +607,10 @@ func play_sound(audio_stream: AudioStream):
 	player.stream = audio_stream
 	add_child(player)
 	player.play()
-	
-	#var duration = player.stream.get_length()
-	#await get_tree().create_timer(duration).timeout
-	#player.queue_free()
+	# optionally free after playback
+	var duration = 0.0
+	if player.stream:
+		duration = player.stream.get_length()
+	if duration > 0.0:
+		await get_tree().create_timer(duration).timeout
+	player.queue_free()
