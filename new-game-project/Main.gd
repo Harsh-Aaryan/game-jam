@@ -42,6 +42,9 @@ var door_unlock = preload("res://assets/door-unlock.wav")
 var computer_win = preload("res://assets/computer-win.wav")
 var poster_interact = preload("res://assets/poster-interact.wav")
 var puzzle_place = preload("res://assets/puzzle-place.wav")
+var slide_move = preload("res://assets/slide-move.wav")
+var footstep = preload("res://assets/footstep.wav")
+var general_interact = preload("res://assets/general-interact.wav")
 
 # Old-timey font styling
 var old_timey_font: Font
@@ -155,6 +158,11 @@ func _set_location(loc: String) -> void:
 	# If leaving computer, clear puzzle pieces (they live under puzzle_layer)
 	if loc != "computer_screen":
 		_clear_puzzle()
+	
+	# Play footstep sound when changing locations (except for title screen and first load)
+	if GameState.current_location != loc and GameState.current_location != "title" and loc != "title":
+		play_sound(footstep)
+	
 	GameState.current_location = loc
 	_update_background(loc)
 	_update_hotspots_for_location(loc)
@@ -309,6 +317,7 @@ func _on_computer():
 		_start_slide_puzzle()
 	else:
 		_show_text_dialog("Computer", "Nothing else useful here.", "OK", func(): popup.hide())
+		play_sound(general_interact)
 
 func _attempt_login() -> void:
 	if popup_line.text.strip_edges() == "2013-09-17":
@@ -326,11 +335,13 @@ func _on_desk():
 		play_sound(desk_grab)
 	else:
 		_show_text_dialog("Desk", "Nothing else under here.", "OK", func(): popup.hide())
+		play_sound(general_interact)
 
 func _on_safe():
 	_safe_screens()
 	if GameState.safe_opened:
 		_show_text_dialog("Safe", "Already open. I took the key.", "OK", func(): popup.hide())
+		play_sound(general_interact)
 		return
 	if GameState.can_open_safe():
 		GameState.safe_opened = true
@@ -339,10 +350,12 @@ func _on_safe():
 		play_sound(key_sound)
 	else:
 		_show_text_dialog("Safe", "It seems as though two puzzle pieces are required to open this safe.", "OK", func(): popup.hide())
+		play_sound(general_interact)
 	
 func _on_closet():
 	if not GameState.has_key:
 		_show_text_dialog("Closet", "Locked. I need a key.", "OK", func(): popup.hide())
+		play_sound(general_interact)
 		return
 	if not GameState.closet_opened:
 		GameState.closet_opened = true
@@ -556,11 +569,14 @@ func _on_piece_clicked(piece: TextureRect) -> void:
 				piece.position = Vector2(nc, nr) * piece_size
 				# update empty slot to previous location
 				empty_slot = Vector2(row, col)
+				# play slide move sound
+				play_sound(slide_move)
 				# check solved
 				if _check_slide_puzzle_solved():
 					GameState.slide_puzzle_solved = true
 					GameState.puzzle_active = false
 					GameState.puzzle_piece_a = true
+					play_sound(puzzle_place)
 					_clear_puzzle()
 					_show_text_dialog("Puzzle Solved!", "You assembled the article.", "OK", func(): _set_location("computer_screen"))
 				return
