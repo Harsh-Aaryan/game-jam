@@ -14,8 +14,9 @@ var has_key: bool = false
 var closet_opened: bool = false
 var closet_looked_at: bool = false
 var game_over: bool = false
+var title_screen_shown: bool = false
 
-var current_location: String = "location1"
+var current_location: String = "title"
 
 func reset():
 	has_badge = true
@@ -30,7 +31,8 @@ func reset():
 	closet_opened = false
 	closet_looked_at = false
 	game_over = false
-	current_location = "location1"
+	title_screen_shown = false
+	current_location = "title"
 
 func has_both_pieces() -> bool:
 	return puzzle_piece_a && puzzle_piece_b

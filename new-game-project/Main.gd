@@ -12,6 +12,7 @@ extends Node2D
 @onready var puzzle_layer: Node2D = Node2D.new()
 
 const ASSET_PATHS := {
+	"title": "res://assets/title-f.png",
 	"location1": "res://assets/location1.png",
 	"location2": "res://assets/location2.png",
 	"location3": "res://assets/location3.png",
@@ -32,10 +33,15 @@ var old_timey_font_large: Font
 
 func _ready():
 	_setup_old_timey_fonts()
-	_set_location(GameState.current_location)
 	var cursor = load("res://assets/cursor.png")
 	Input.set_custom_mouse_cursor(cursor, Input.CURSOR_ARROW, Vector2(0,16))
 	add_child(puzzle_layer)
+	
+	# Start with title screen
+	if GameState.current_location == "title":
+		_show_title_screen()
+	else:
+		_set_location(GameState.current_location)
 
 func _setup_old_timey_fonts():
 	# Create old-timey fonts using Godot's built-in font system
@@ -118,6 +124,9 @@ func _set_location(loc: String) -> void:
 	_clear_hotspots()
 	_clear_room_text()
 	_clear_image_overlays()
+	if loc == "title":
+		_show_title_screen()
+		return
 	if loc != "computer_screen":
 		puzzle_layer.queue_free()
 		puzzle_layer = Node2D.new()
@@ -283,7 +292,7 @@ func _close_closet_view():
 func _end_game():
 	if not GameState.game_over:
 		GameState.game_over = true
-		_show_text_dialog("The End", "You recognize yourself in the mirror. You were Joe Miner, hidden behind a new identity.", "Restart", func(): GameState.reset(); _set_location(GameState.current_location); popup.hide(), "Quit", func(): get_tree().quit())
+		_show_text_dialog("The End", "You recognize yourself in the mirror. You were Joe Miner, hidden behind a new identity.", "Restart", func(): GameState.reset(); _set_location("title"); popup.hide(), "Quit", func(): get_tree().quit())
 
 # --- Popups ---
 func _show_text_dialog(title: String, body: String, primary_text: String, primary_cb: Callable, secondary_text: String = "", secondary_cb: Callable = Callable()):
@@ -335,6 +344,35 @@ func _clear_image_overlays():
 	for child in get_children():
 		if child.name.begins_with("image_overlay"):
 			child.queue_free()
+
+func _show_title_screen():
+	_clear_hotspots()
+	_clear_room_text()
+	_clear_image_overlays()
+	
+	# Set title background
+	_update_background("title")
+	
+	# Add clickable area for the entire screen
+	_add_hotspot(Rect2(0, 0, 720, 480), "", func(): _start_game())
+	
+	# Add "Click to Start" text
+	var start_label = Label.new()
+	start_label.text = "Click anywhere to start"
+	start_label.position = Vector2(360 - 100, 400) # Center horizontally, near bottom
+	start_label.add_theme_font_override("font", old_timey_font)
+	start_label.add_theme_font_size_override("font_size", 16)
+	start_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.6)) # Golden yellow
+	start_label.add_theme_color_override("font_shadow_color", Color(0.3, 0.2, 0.0)) # Dark shadow
+	start_label.add_theme_constant_override("shadow_offset_x", 2)
+	start_label.add_theme_constant_override("shadow_offset_y", 2)
+	add_child(start_label)
+	hotspots.append(start_label)
+
+func _start_game():
+	GameState.title_screen_shown = true
+	GameState.current_location = "location1"
+	_set_location("location1")
 
 # --- Slide Puzzle ---
 func _start_slide_puzzle():
