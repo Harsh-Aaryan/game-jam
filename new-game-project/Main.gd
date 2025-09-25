@@ -32,7 +32,8 @@ const ASSET_PATHS := {
 var hotspots: Array[Area2D] = []
 var puzzle_grid: Array = []
 var empty_slot: Vector2 = Vector2(2,2)
-var piece_size: Vector2 = Vector2(100, 100) # adjust to your puzzle piece size
+var piece_size: Vector2 = Vector2(100, 100)
+var computer_unlock_sound = preload("res://assets/computer-unlock.wav")
 
 # Old-timey font styling
 var old_timey_font: Font
@@ -154,6 +155,8 @@ func _update_background(loc: String) -> void:
 	info_label.text = _make_info_text()
 
 func _make_info_text() -> String:
+	if GameState.closet_opened:
+		return ""
 	var lines := []
 	lines.append("")
 	if GameState.has_badge: lines.append("")
@@ -161,7 +164,8 @@ func _make_info_text() -> String:
 	if GameState.puzzle_piece_a: lines.append("")
 	if GameState.puzzle_piece_b: lines.append("")
 	if GameState.has_key: lines.append("")
-	lines.append("\nHint: Press Tab to switch rooms.")
+	if GameState.title_screen_shown:
+		lines.append("\nHint: Press Tab to switch rooms.")
 	return "".join(lines)
 
 func _input(event: InputEvent) -> void:
@@ -253,6 +257,7 @@ func _on_computer():
 		return
 
 	_set_location("computer_screen")
+	play_sound(computer_unlock_sound)
 
 	if not GameState.slide_puzzle_solved:
 		_start_slide_puzzle()
@@ -271,48 +276,57 @@ func _on_desk():
 	if not GameState.desk_checked:
 		GameState.desk_checked = true
 		GameState.puzzle_piece_b = true
-		_show_text_dialog("Desk", "Taped underneath is the other half of the puzzle and a note hinting at a new identity.", "OK", func(): popup.hide())
+		_show_text_dialog("Desk", "Taped underneath this unassuming desk is half of a puzzle piece", "OK", func(): popup.hide())
 	else:
 		_show_text_dialog("Desk", "Nothing else under here.", "OK", func(): popup.hide())
 
 func _on_safe():
 	_safe_screens()
 	if GameState.safe_opened:
-		_show_text_dialog("Safe", "Already open. The key is gone.", "OK", func(): popup.hide())
+		_show_text_dialog("Safe", "Already open. I took the key.", "OK", func(): popup.hide())
 		return
 	if GameState.can_open_safe():
 		GameState.safe_opened = true
 		GameState.has_key = true
-		_show_text_dialog("Safe", "The pieces fit. The safe clicks open, revealing a key.", "Take Key", func(): popup.hide())
+		_show_text_dialog("Safe", "The pieces fit. The safe clicks open, revealing a key.", "Continue", func(): popup.hide())
 	else:
-		_show_text_dialog("Safe", "Two puzzle pieces are required to open this safe.", "OK", func(): popup.hide())
+		_show_text_dialog("Safe", "It seems as though two puzzle pieces are required to open this safe.", "OK", func(): popup.hide())
 
 func _on_closet():
 	if not GameState.has_key:
-		_show_text_dialog("Closet", "Locked. You need a key.", "OK", func(): popup.hide())
+		_show_text_dialog("Closet", "Locked. I need a key.", "OK", func(): popup.hide())
 		return
 	if not GameState.closet_opened:
 		GameState.closet_opened = true
+		info_label.text = _make_info_text()
 		_show_image_overlay(ASSET_PATHS["closet1"])
-		_show_text_dialog("Closet", "The closet is now open. You can see inside.", "Look Inside", func(): _look_inside_closet(), "Close", func(): _close_closet_view())
-	elif not GameState.closet_looked_at:
-		_look_inside_closet()
+		_show_text_dialog("Closet", "The closet is now open. I can see inside.", "Look Inside", func(): _reveal_identity())
 	else:
-		_end_game()
+		_reveal_identity()
 
-func _look_inside_closet():
-	GameState.closet_looked_at = true
-	_show_image_overlay(ASSET_PATHS["closet2"], ASSET_PATHS["joeminer_old"])
-	_show_text_dialog("Closet", "Inside is a standing mirror and paperwork: evidence of plastic surgery to hide your identity. You recognize yourself in the mirror.", "Continue", func(): _close_closet_view())
-
-func _close_closet_view():
+func _reveal_identity():
 	_clear_image_overlays()
-	popup.hide()
+	_show_image_overlay(ASSET_PATHS["closet2"], ASSET_PATHS["joeminer_old"])
+	_show_text_dialog("Closet", "Inside is a mirror and paperwork revealing I altered my appearence. I recognize myself — I'm Joe Miner.", 
+		"Continue", func(): _end_game()
+	)
 
 func _end_game():
 	if not GameState.game_over:
 		GameState.game_over = true
-		_show_text_dialog("The End", "You recognize yourself in the mirror. You were Joe Miner, hidden behind a new identity.", "Restart", func(): GameState.reset(); _set_location("title"); popup.hide(), "Quit", func(): get_tree().quit())
+		_show_text_dialog("The End", "I wanted to forget...",
+			"Restart", func(): GameState.reset(); _set_location("title"); popup.hide(),
+			"Quit", func(): get_tree().quit()
+		)
+
+func _look_inside_closet():
+	GameState.closet_looked_at = true
+	_show_image_overlay(ASSET_PATHS["closet2"], ASSET_PATHS["joeminer_old"])
+	_show_text_dialog("Closet", "Inside is a standing mirror and paperwork: evidence of plastic surgery to hide my identity. I recognize myself in the mirror.", "Continue", func(): _close_closet_view())
+
+func _close_closet_view():
+	_clear_image_overlays()
+	popup.hide()
 
 # --- Popups ---
 func _show_text_dialog(title: String, body: String, primary_text: String, primary_cb: Callable, secondary_text: String = "", secondary_cb: Callable = Callable()):
@@ -372,10 +386,8 @@ func _show_title_screen():
 	# Set title background
 	_update_background("title")
 	
-	# Add clickable area for the entire screen
 	_add_hotspot(Rect2(0, 0, 720, 480), "", func(): _start_game())
 	
-	# Add "Click to Start" text
 	var start_label = Label.new()
 	start_label.text = "Click anywhere to start"
 	start_label.position = Vector2(360 - 100, 400) # Center horizontally, near bottom
@@ -466,20 +478,26 @@ func _check_slide_puzzle_solved() -> bool:
 	return true
 	
 func _safe_screens():
-# Already opened and empty
 	if GameState.safe_opened and GameState.has_key:
 		_set_location("safe_open_empty")
 		return
-	# Safe opened, key visible inside
 	if GameState.puzzle_piece_a and GameState.puzzle_piece_b and not GameState.safe_opened:
 		_set_location("safe_open_key")
 		return
-	# Piece states
 	if GameState.puzzle_piece_a and not GameState.puzzle_piece_b:
 		_set_location("safe_piece_a")
 		return
 	if GameState.puzzle_piece_b and not GameState.puzzle_piece_a:
 		_set_location("safe_piece_b")
 		return
-	# Locked state
 	_set_location("safe_locked")
+	
+func play_sound(audio_stream: AudioStream):
+	var player = AudioStreamPlayer.new()
+	player.stream = audio_stream
+	add_child(player)
+	player.play()
+	
+	#var duration = player.stream.get_length()
+	#await get_tree().create_timer(duration).timeout
+	#player.queue_free()

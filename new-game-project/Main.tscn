@@ -57,6 +57,7 @@ theme_override_font_sizes/font_size = 14
 text = "OK"
 
 [node name="Secondary" type="Button" parent="UI/Popup/Margin/VBox/Buttons"]
+visible = false
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
 text = "Cancel"
