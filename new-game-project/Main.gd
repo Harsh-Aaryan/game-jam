@@ -36,6 +36,12 @@ var puzzle_grid: Array = []
 var empty_slot: Vector2 = Vector2(2,2) # row,col (row=2,col=2) is empty slot
 var piece_size: Vector2 = Vector2(100, 100)
 var computer_unlock_sound = preload("res://assets/computer-unlock.wav")
+var key_sound = preload("res://assets/key-pickup.wav")
+var desk_grab = preload("res://assets/desk-grab.wav")
+var door_unlock = preload("res://assets/door-unlock.wav")
+var computer_win = preload("res://assets/computer-win.wav")
+var poster_interact = preload("res://assets/poster-interact.wav")
+var puzzle_place = preload("res://assets/puzzle-place.wav")
 
 # Old-timey font styling
 var old_timey_font: Font
@@ -169,8 +175,8 @@ func _make_info_text() -> String:
 		return ""
 	var lines := []
 	# Inventory (keep your existing placeholders but make them visible)
-	if GameState.has_badge: lines.append("Badge ")
-	if GameState.has_paper_intro: lines.append("Intro Paper ")
+	if GameState.has_badge: lines.append("")
+	if GameState.has_paper_intro: lines.append("")
 	if GameState.puzzle_piece_a: lines.append("Piece A ")
 	if GameState.puzzle_piece_b: lines.append("Piece B ")
 	if GameState.has_key: lines.append("Key ")
@@ -287,6 +293,7 @@ func _update_hotspots_for_location(loc: String) -> void:
 # --- Room Interactions ---
 func _on_poster():
 	_set_location("poster")
+	play_sound(poster_interact)
 
 func _on_computer():
 	if not GameState.computer_unlocked:
@@ -316,6 +323,7 @@ func _on_desk():
 		GameState.desk_checked = true
 		GameState.puzzle_piece_b = true
 		_show_text_dialog("Desk", "Taped underneath this unassuming desk is half of a puzzle piece", "OK", func(): popup.hide())
+		play_sound(desk_grab)
 	else:
 		_show_text_dialog("Desk", "Nothing else under here.", "OK", func(): popup.hide())
 
@@ -328,9 +336,10 @@ func _on_safe():
 		GameState.safe_opened = true
 		GameState.has_key = true
 		_show_text_dialog("Safe", "The pieces fit. The safe clicks open, revealing a key.", "Continue", func(): popup.hide())
+		play_sound(key_sound)
 	else:
 		_show_text_dialog("Safe", "It seems as though two puzzle pieces are required to open this safe.", "OK", func(): popup.hide())
-
+	
 func _on_closet():
 	if not GameState.has_key:
 		_show_text_dialog("Closet", "Locked. I need a key.", "OK", func(): popup.hide())
@@ -340,6 +349,7 @@ func _on_closet():
 		info_label.text = _make_info_text()
 		_show_image_overlay(ASSET_PATHS["closet1"])
 		_show_text_dialog("Closet", "The closet is now open. I can see inside.", "Look Inside", func(): _reveal_identity())
+		play_sound(door_unlock)
 	else:
 		_reveal_identity()
 
@@ -585,6 +595,7 @@ func _check_slide_puzzle_solved() -> bool:
 			var p = puzzle_grid[row][col]
 			if p == null or p.name != "piece_%d_%d" % [row, col]:
 				return false
+	play_sound(computer_win)
 	return true
 	
 func _safe_screens():
