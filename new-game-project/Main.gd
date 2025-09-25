@@ -20,6 +20,13 @@ const ASSET_PATHS := {
 	"closet1": "res://assets/closet1-f.png",
 	"closet2": "res://assets/closet2-f.png",
 	"joeminer_old": "res://assets/joeminerold-f.png",
+	"poster": "res://assets/posterwall.png",
+	"safe_open_empty": "res://assets/safe6-f.png",
+	"safe_open_key": "res://assets/safe5-f.png",
+	"safe_locked": "res://assets/safe1-f.png",
+	"safe_piece_a": "res://assets/safe2-f.png", 
+	"safe_piece_b": "res://assets/safe3-f.png", 
+	"safe_all_pieces": "res://assets/safe4-f.png",
 }
 
 var hotspots: Array[Area2D] = []
@@ -148,12 +155,12 @@ func _update_background(loc: String) -> void:
 
 func _make_info_text() -> String:
 	var lines := []
-	lines.append("Inventory: ")
-	if GameState.has_badge: lines.append("Badge ")
-	if GameState.has_paper_intro: lines.append("Intro Paper ")
-	if GameState.puzzle_piece_a: lines.append("Piece A ")
-	if GameState.puzzle_piece_b: lines.append("Piece B ")
-	if GameState.has_key: lines.append("Key ")
+	lines.append("")
+	if GameState.has_badge: lines.append("")
+	if GameState.has_paper_intro: lines.append("")
+	if GameState.puzzle_piece_a: lines.append("")
+	if GameState.puzzle_piece_b: lines.append("")
+	if GameState.has_key: lines.append("")
 	lines.append("\nHint: Press Tab to switch rooms.")
 	return "".join(lines)
 
@@ -210,23 +217,35 @@ func _update_hotspots_for_location(loc: String) -> void:
 	_clear_hotspots()
 	match loc:
 		"location1":
-			_add_hotspot(Rect2(290, 220, 160, 90), "Computer", func(): _on_computer())
-			_add_hotspot(Rect2(560, 250, 130, 100), "Desk", func(): _on_desk())
-			_add_hotspot(Rect2(700, 20, 120, 120), "---->", func(): _set_location("location2"))
+			_add_hotspot(Rect2(180, 220, 160, 90), "", func(): _on_computer())
+			_add_hotspot(Rect2(560, 250, 130, 100), "", func(): _on_desk())
+			_add_hotspot(Rect2(680, 20, 230, 250), "", func(): _set_location("location2"))
 		"location2":
-			_add_hotspot(Rect2(500, 60, 140, 100), "Poster", func(): _on_poster())
-			_add_hotspot(Rect2(40, 170, 140, 100), "<----", func(): _set_location("location1"))
-			_add_hotspot(Rect2(680, 220, 140, 100), "Small Door", func(): _set_location("location3"))
+			_add_hotspot(Rect2(450, 60, 150, 170), "", func(): _on_poster())
+			_add_hotspot(Rect2(40, 170, 140, 100), "", func(): _set_location("location1"))
+			_add_hotspot(Rect2(680, 220, 140, 100), "", func(): _set_location("location3"))
 		"location3":
-			_add_hotspot(Rect2(320, 120, 200, 220), "Closet", func(): _on_closet())
-			_add_hotspot(Rect2(120, 120, 180, 180), "Safe", func(): _on_safe())
-			_add_hotspot(Rect2(40, 220, 140, 100), "<----", func(): _set_location("location2"))
+			_add_hotspot(Rect2(320, 120, 170, 220), "", func(): _on_closet())
+			_add_hotspot(Rect2(80, 50, 115, 160), "", func(): _on_safe())
+			_add_hotspot(Rect2(10, 200, 60, 200), "", func(): _set_location("location2"))
 		"computer_screen":
-			_add_hotspot(Rect2(40, 220, 140, 100), "Back", func(): _set_location("location1"))
+			_add_hotspot(Rect2(40, 220, 140, 100), "", func(): _set_location("location1"))
+		"poster":
+			_add_hotspot(Rect2(0, 0, 720, 480), "", func(): _set_location("location2"))
+		"safe_locked", "safe_piece_a", "safe_piece_b":
+			_add_hotspot(Rect2(0, 0, 720, 480), "", func(): _set_location("location3"))
+		"safe_open_key":
+			_add_hotspot(Rect2(350, 300, 100, 100), "Take Key", func():
+				GameState.has_key = true
+				GameState.safe_opened = true
+				_set_location("safe_open_empty")
+			)
+		"safe_open_empty":
+			_add_hotspot(Rect2(0, 0, 720, 480), "", func(): _set_location("location3"))
 
 # --- Room Interactions ---
 func _on_poster():
-	_show_text_dialog("Missing Poster", "Missing: Joe Miner. Went missing on 2013-09-17.\nPassword hint: The date (YYYY-MM-DD).", "OK", func(): popup.hide())
+	_set_location("poster")
 
 func _on_computer():
 	if not GameState.computer_unlocked:
@@ -257,6 +276,7 @@ func _on_desk():
 		_show_text_dialog("Desk", "Nothing else under here.", "OK", func(): popup.hide())
 
 func _on_safe():
+	_safe_screens()
 	if GameState.safe_opened:
 		_show_text_dialog("Safe", "Already open. The key is gone.", "OK", func(): popup.hide())
 		return
@@ -322,21 +342,20 @@ func _show_input_dialog(title: String, body: String, primary_text: String, prima
 	popup.popup_centered()
 
 func _show_image_overlay(image_path: String, overlay_path: String = ""):
-	# Clear any existing image overlays
 	_clear_image_overlays()
-	
-	# Create main image sprite
 	var main_sprite = Sprite2D.new()
 	main_sprite.texture = load(image_path)
-	main_sprite.position = Vector2(360, 240) # Center of 720x480 screen
+	if main_sprite.texture:
+		main_sprite.centered = true
+		main_sprite.position = get_viewport_rect().size / 2
 	main_sprite.name = "image_overlay_main"
 	add_child(main_sprite)
-	
-	# Add overlay image if provided
 	if overlay_path != "":
 		var overlay_sprite = Sprite2D.new()
 		overlay_sprite.texture = load(overlay_path)
-		overlay_sprite.position = Vector2(360, 240) # Center of 720x480 screen
+		if overlay_sprite.texture:
+			overlay_sprite.centered = true
+			overlay_sprite.position = get_viewport_rect().size / 2
 		overlay_sprite.name = "image_overlay_secondary"
 		add_child(overlay_sprite)
 
@@ -445,3 +464,22 @@ func _check_slide_puzzle_solved() -> bool:
 			if p == null or p.name != "piece_%d_%d" % [row, col]:
 				return false
 	return true
+	
+func _safe_screens():
+# Already opened and empty
+	if GameState.safe_opened and GameState.has_key:
+		_set_location("safe_open_empty")
+		return
+	# Safe opened, key visible inside
+	if GameState.puzzle_piece_a and GameState.puzzle_piece_b and not GameState.safe_opened:
+		_set_location("safe_open_key")
+		return
+	# Piece states
+	if GameState.puzzle_piece_a and not GameState.puzzle_piece_b:
+		_set_location("safe_piece_a")
+		return
+	if GameState.puzzle_piece_b and not GameState.puzzle_piece_a:
+		_set_location("safe_piece_b")
+		return
+	# Locked state
+	_set_location("safe_locked")
