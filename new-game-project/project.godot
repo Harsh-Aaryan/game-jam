@@ -15,12 +15,12 @@ run/main_scene="uid://b5ry3pab4qwam"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+GameState="*res://GameState.gd"
+
 [display]
 
 window/size/viewport_width=720
 window/size/viewport_height=480
 window/size/resizable=false
-
-[autoload]
-
-GameState="*res://GameState.gd"

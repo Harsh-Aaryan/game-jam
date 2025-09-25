@@ -26,11 +26,80 @@ var puzzle_grid: Array = []
 var empty_slot: Vector2 = Vector2(2,2)
 var piece_size: Vector2 = Vector2(100, 100) # adjust to your puzzle piece size
 
+# Old-timey font styling
+var old_timey_font: Font
+var old_timey_font_large: Font
+
 func _ready():
+	_setup_old_timey_fonts()
 	_set_location(GameState.current_location)
 	var cursor = load("res://assets/cursor.png")
 	Input.set_custom_mouse_cursor(cursor, Input.CURSOR_ARROW, Vector2(0,16))
 	add_child(puzzle_layer)
+
+func _setup_old_timey_fonts():
+	# Create old-timey fonts using Godot's built-in font system
+	var custom_font_data = null
+	if ResourceLoader.exists("res://assets/old_timey_font.ttf"):
+		custom_font_data = load("res://assets/old_timey_font.ttf")
+	
+	if custom_font_data != null:
+		# Use custom font if available
+		old_timey_font = FontFile.new()
+		old_timey_font.font_data = custom_font_data
+	else:
+		# Use Godot's fallback font with old-timey styling
+		old_timey_font = ThemeDB.fallback_font.duplicate()
+	
+	# Create large font variant
+	old_timey_font_large = old_timey_font.duplicate()
+	
+	# Apply old-timey styling to existing UI elements
+	_apply_old_timey_styling()
+
+func _apply_old_timey_styling():
+	# Style the info label
+	if info_label:
+		info_label.add_theme_font_override("font", old_timey_font)
+		info_label.add_theme_font_size_override("font_size", 14)
+		info_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5)) # Sepia tone
+		info_label.add_theme_color_override("font_shadow_color", Color(0.2, 0.1, 0.0)) # Dark shadow
+		info_label.add_theme_constant_override("shadow_offset_x", 2)
+		info_label.add_theme_constant_override("shadow_offset_y", 2)
+	
+	# Style popup elements
+	if popup_title:
+		popup_title.add_theme_font_override("font", old_timey_font_large)
+		popup_title.add_theme_font_size_override("font_size", 18)
+		popup_title.add_theme_color_override("font_color", Color(0.9, 0.8, 0.6))
+		popup_title.add_theme_color_override("font_shadow_color", Color(0.3, 0.2, 0.1))
+		popup_title.add_theme_constant_override("shadow_offset_x", 2)
+		popup_title.add_theme_constant_override("shadow_offset_y", 2)
+	
+	if popup_body:
+		popup_body.add_theme_font_override("font", old_timey_font)
+		popup_body.add_theme_font_size_override("font_size", 14)
+		popup_body.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+		popup_body.add_theme_color_override("font_shadow_color", Color(0.2, 0.1, 0.0))
+		popup_body.add_theme_constant_override("shadow_offset_x", 1)
+		popup_body.add_theme_constant_override("shadow_offset_y", 1)
+	
+	if popup_line:
+		popup_line.add_theme_font_override("font", old_timey_font)
+		popup_line.add_theme_font_size_override("font_size", 14)
+		popup_line.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+	
+	if popup_button_primary:
+		popup_button_primary.add_theme_font_override("font", old_timey_font)
+		popup_button_primary.add_theme_font_size_override("font_size", 14)
+		popup_button_primary.add_theme_color_override("font_color", Color(0.9, 0.8, 0.6))
+		popup_button_primary.add_theme_color_override("font_hover_color", Color(1.0, 0.9, 0.7))
+	
+	if popup_button_secondary:
+		popup_button_secondary.add_theme_font_override("font", old_timey_font)
+		popup_button_secondary.add_theme_font_size_override("font_size", 14)
+		popup_button_secondary.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+		popup_button_secondary.add_theme_color_override("font_hover_color", Color(0.9, 0.8, 0.6))
 
 # --- Hotspot & Room Handling ---
 func _clear_hotspots():
@@ -103,6 +172,13 @@ func _add_hotspot(rect: Rect2, label: String, on_press: Callable) -> void:
 	l.text = label
 	l.position = rect.position
 	l.modulate = Color(1,1,0)
+	# Apply old-timey styling to hotspot labels
+	l.add_theme_font_override("font", old_timey_font)
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", Color(1.0, 0.9, 0.6)) # Golden yellow
+	l.add_theme_color_override("font_shadow_color", Color(0.3, 0.2, 0.0)) # Dark shadow
+	l.add_theme_constant_override("shadow_offset_x", 1)
+	l.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(l)
 
 	var finger_cursor = preload("res://assets/cursor.png")
