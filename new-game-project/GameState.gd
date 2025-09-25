@@ -12,6 +12,7 @@ var puzzle_piece_b: bool = false
 var safe_opened: bool = false
 var has_key: bool = false
 var closet_opened: bool = false
+var closet_looked_at: bool = false
 var game_over: bool = false
 
 var current_location: String = "location1"
@@ -27,6 +28,7 @@ func reset():
 	safe_opened = false
 	has_key = false
 	closet_opened = false
+	closet_looked_at = false
 	game_over = false
 	current_location = "location1"
 

@@ -16,6 +16,9 @@ const ASSET_PATHS := {
 	"location2": "res://assets/location2.png",
 	"location3": "res://assets/location3.png",
 	"computer_screen": "res://assets/computerscreen-f.png",
+	"closet1": "res://assets/closet1-f.png",
+	"closet2": "res://assets/closet2-f.png",
+	"joeminer_old": "res://assets/joeminerold-f.png",
 }
 
 var hotspots: Array[Area2D] = []
@@ -45,6 +48,7 @@ func _clear_room_text() -> void:
 func _set_location(loc: String) -> void:
 	_clear_hotspots()
 	_clear_room_text()
+	_clear_image_overlays()
 	if loc != "computer_screen":
 		puzzle_layer.queue_free()
 		puzzle_layer = Node2D.new()
@@ -184,9 +188,21 @@ func _on_closet():
 		return
 	if not GameState.closet_opened:
 		GameState.closet_opened = true
-		_show_text_dialog("Closet", "Inside is a standing mirror and paperwork: evidence of plastic surgery to hide your identity.", "Continue", func(): popup.hide())
+		_show_image_overlay(ASSET_PATHS["closet1"])
+		_show_text_dialog("Closet", "The closet is now open. You can see inside.", "Look Inside", func(): _look_inside_closet(), "Close", func(): _close_closet_view())
+	elif not GameState.closet_looked_at:
+		_look_inside_closet()
 	else:
 		_end_game()
+
+func _look_inside_closet():
+	GameState.closet_looked_at = true
+	_show_image_overlay(ASSET_PATHS["closet2"], ASSET_PATHS["joeminer_old"])
+	_show_text_dialog("Closet", "Inside is a standing mirror and paperwork: evidence of plastic surgery to hide your identity. You recognize yourself in the mirror.", "Continue", func(): _close_closet_view())
+
+func _close_closet_view():
+	_clear_image_overlays()
+	popup.hide()
 
 func _end_game():
 	if not GameState.game_over:
@@ -219,6 +235,30 @@ func _show_input_dialog(title: String, body: String, primary_text: String, prima
 	popup_button_secondary.visible = true
 	popup_button_secondary.pressed.connect(secondary_cb, Object.CONNECT_ONE_SHOT)
 	popup.popup_centered()
+
+func _show_image_overlay(image_path: String, overlay_path: String = ""):
+	# Clear any existing image overlays
+	_clear_image_overlays()
+	
+	# Create main image sprite
+	var main_sprite = Sprite2D.new()
+	main_sprite.texture = load(image_path)
+	main_sprite.position = Vector2(360, 240) # Center of 720x480 screen
+	main_sprite.name = "image_overlay_main"
+	add_child(main_sprite)
+	
+	# Add overlay image if provided
+	if overlay_path != "":
+		var overlay_sprite = Sprite2D.new()
+		overlay_sprite.texture = load(overlay_path)
+		overlay_sprite.position = Vector2(360, 240) # Center of 720x480 screen
+		overlay_sprite.name = "image_overlay_secondary"
+		add_child(overlay_sprite)
+
+func _clear_image_overlays():
+	for child in get_children():
+		if child.name.begins_with("image_overlay"):
+			child.queue_free()
 
 # --- Slide Puzzle ---
 func _start_slide_puzzle():
