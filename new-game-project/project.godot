@@ -24,3 +24,8 @@ GameState="*res://GameState.gd"
 window/size/viewport_width=720
 window/size/viewport_height=480
 window/size/resizable=false
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

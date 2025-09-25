@@ -45,13 +45,21 @@ var puzzle_place = preload("res://assets/puzzle-place.wav")
 var slide_move = preload("res://assets/slide-move.wav")
 var footstep = preload("res://assets/footstep.wav")
 var general_interact = preload("res://assets/general-interact.wav")
+var bgm = preload("res://assets/bgm.ogg")
 
 # Old-timey font styling
 var old_timey_font: Font
 var old_timey_font_large: Font
 
+# Background music system
+var bgm_player: AudioStreamPlayer
+var bgm_muted: bool = false
+var mute_button: Button
+
 func _ready():
 	_setup_old_timey_fonts()
+	_setup_background_music()
+	_setup_mute_button()
 	var cursor = load("res://assets/cursor.png")
 	Input.set_custom_mouse_cursor(cursor, Input.CURSOR_ARROW, Vector2(0,16))
 
@@ -136,6 +144,53 @@ func _apply_old_timey_styling():
 		popup_button_secondary.add_theme_font_size_override("font_size", 14)
 		popup_button_secondary.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
 		popup_button_secondary.add_theme_color_override("font_hover_color", Color(0.9, 0.8, 0.6))
+
+func _setup_background_music():
+	# Create background music player
+	bgm_player = AudioStreamPlayer.new()
+	bgm_player.stream = bgm
+	bgm_player.volume_db = -6.0  # 60% volume (approximately -6dB)
+	bgm_player.autoplay = true
+	# Set loop on the AudioStream itself
+	if bgm_player.stream:
+		bgm_player.stream.loop = true
+	add_child(bgm_player)
+
+func _setup_mute_button():
+	# Create mute button in top right corner
+	mute_button = Button.new()
+	mute_button.text = "🔊"
+	mute_button.position = Vector2(650, 10)  # Top right corner
+	mute_button.size = Vector2(60, 30)
+	mute_button.pressed.connect(_toggle_bgm_mute)
+	
+	# Style the mute button
+	mute_button.add_theme_font_override("font", old_timey_font)
+	mute_button.add_theme_font_size_override("font_size", 12)
+	mute_button.add_theme_color_override("font_color", Color(0.9, 0.8, 0.6))
+	mute_button.add_theme_color_override("font_hover_color", Color(1.0, 0.9, 0.7))
+	
+	# Remove borders and background
+	mute_button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	mute_button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
+	mute_button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	mute_button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	
+	add_child(mute_button)
+
+func _toggle_bgm_mute():
+	bgm_muted = !bgm_muted
+	if bgm_muted:
+		bgm_player.volume_db = -80.0  # Mute
+		mute_button.text = "🔇"
+	else:
+		bgm_player.volume_db = -6.0  # 60% volume
+		mute_button.text = "🔊"
+
+func _restart_bgm():
+	# Restart background music when game is restarted
+	if bgm_player and not bgm_muted:
+		bgm_player.play()
 
 # --- Hotspot & Room Handling ---
 func _clear_hotspots():
@@ -376,8 +431,11 @@ func _reveal_identity():
 func _end_game():
 	if not GameState.game_over:
 		GameState.game_over = true
+		# Stop background music when game is completed
+		if bgm_player:
+			bgm_player.stop()
 		_show_text_dialog("The End", "I wanted to forget...",
-			"Restart", func(): GameState.reset(); _set_location("title"); popup.hide(),
+			"Restart", func(): GameState.reset(); _restart_bgm(); _set_location("title"); popup.hide(),
 			"Quit", func(): get_tree().quit()
 		)
 
